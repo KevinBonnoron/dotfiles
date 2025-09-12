@@ -1,0 +1,2 @@
+$dotfilesDir = "$HOME\dotfiles"
+
