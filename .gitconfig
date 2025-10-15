@@ -1,0 +1,39 @@
+[alias]
+    ll = log --oneline
+    autosquash = rebase -i origin/HEAD --autosquash
+    amend = commit --amend --no-edit
+    cleangone = !git fetch -p && git branch -vv | grep -E ': (gone|disparue)]' | awk '{print $1}' | xargs -r git branch -D
+    unstage = reset HEAD --
+    undo = reset --soft HEAD~1
+
+[core]
+    autocrlf = input
+    pager = less -FRX
+   
+[init]
+    defaultBranch = main
+   
+[pull]
+    rebase = true
+   
+[push]
+    default = simple
+   
+[color]
+    ui = auto
+   
+[color "branch"]
+    current = yellow reverse
+    local = yellow
+    remote = green
+   
+[color "diff"]
+    meta = yellow bold
+    frag = magenta bold
+    old = red bold
+    new = green bold
+   
+[color "status"]
+    added = yellow
+    changed = green
+    untracked = cyan
