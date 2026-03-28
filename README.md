@@ -5,6 +5,7 @@ Personal Git configuration files.
 ## Contents
 
 - **Git** — aliases, colors, and sensible defaults
+- **Ghostty** — terminal emulator configuration
 
 ## Requirements
 
@@ -32,7 +33,9 @@ cd $HOME\dotfiles
 .\install.ps1
 ```
 
-The script injects the `.gitconfig` via `[include]` in `~/.gitconfig`.
+The install script:
+- injects `.gitconfig` via `[include]` in `~/.gitconfig`
+- symlinks the Ghostty config to `~/.config/ghostty/config` *(Linux/macOS only)*
 
 ## Git aliases
 
