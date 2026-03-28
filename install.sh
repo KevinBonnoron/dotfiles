@@ -34,6 +34,28 @@ check_git_installed() {
     fi
 }
 
+install_ghostty_config() {
+    print_info "Installing Ghostty configuration..."
+
+    local ghostty_config_dir="$HOME/.config/ghostty"
+    local ghostty_config_dest="$ghostty_config_dir/config"
+    local ghostty_config_source="$DOTFILES_DIR/ghostty/config"
+
+    mkdir -p "$ghostty_config_dir"
+
+    if [ -L "$ghostty_config_dest" ]; then
+        print_info "Symlink already exists at $ghostty_config_dest"
+    elif [ -f "$ghostty_config_dest" ]; then
+        print_info "Existing config found. Backing up to $ghostty_config_dest.bak"
+        mv "$ghostty_config_dest" "$ghostty_config_dest.bak"
+        ln -s "$ghostty_config_source" "$ghostty_config_dest"
+        print_success "Ghostty config symlinked (original backed up)"
+    else
+        ln -s "$ghostty_config_source" "$ghostty_config_dest"
+        print_success "Ghostty config symlinked to $ghostty_config_dest"
+    fi
+}
+
 install_git_config() {
     print_info "Installing Git configuration..."
 
@@ -77,6 +99,7 @@ main() {
     check_dotfiles_directory
     check_git_installed
     install_git_config
+    install_ghostty_config
 
     echo ""
     print_success "Installation completed!"
