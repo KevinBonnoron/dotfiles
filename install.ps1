@@ -27,6 +27,42 @@ function Test-GitInstalled {
     }
 }
 
+function Install-ClaudeSkills {
+    Write-Info 'Installing Claude Code skills...'
+
+    $skillsSource = Join-Path $DotfilesDir 'skills'
+    $skillsDest = Join-Path $HOME '.claude\skills'
+
+    if (-not (Test-Path $skillsSource)) {
+        Write-Info 'No skills directory found in dotfiles, skipping.'
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path $skillsDest | Out-Null
+
+    Get-ChildItem -Path $skillsSource -Directory | ForEach-Object {
+        $skillName = $_.Name
+        $dest = Join-Path $skillsDest $skillName
+
+        if (Test-Path $dest) {
+            $item = Get-Item $dest -Force
+            if ($item.LinkType -eq 'Junction' -or $item.LinkType -eq 'SymbolicLink') {
+                Write-Info ("Skill '$skillName' already linked")
+                return
+            }
+            Write-Info ("Existing skill '$skillName' found. Backing up...")
+            Rename-Item -Path $dest -NewName ($dest + '.bak')
+        }
+
+        try {
+            New-Item -ItemType Junction -Path $dest -Target $_.FullName | Out-Null
+            Write-Success ("Skill '$skillName' linked to $dest")
+        } catch {
+            Write-Output ("WARNING: Could not link skill '$skillName': $_")
+        }
+    }
+}
+
 function Install-GitConfig {
     Write-Info ('Installing Git configuration...')
 
@@ -73,6 +109,7 @@ function Main {
     Test-DotfilesDirectory
     Test-GitInstalled
     Install-GitConfig
+    Install-ClaudeSkills
 
     Write-Output ""
     Write-Success ('Installation completed!')

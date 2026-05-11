@@ -56,6 +56,39 @@ install_ghostty_config() {
     fi
 }
 
+install_claude_skills() {
+    print_info "Installing Claude Code skills..."
+
+    local skills_source="$DOTFILES_DIR/skills"
+    local skills_dest="$HOME/.claude/skills"
+
+    if [ ! -d "$skills_source" ]; then
+        print_info "No skills directory found in dotfiles, skipping."
+        return
+    fi
+
+    mkdir -p "$skills_dest"
+
+    for skill_dir in "$skills_source"/*/; do
+        [ -d "$skill_dir" ] || continue
+        local skill_name
+        skill_name=$(basename "$skill_dir")
+        local dest="$skills_dest/$skill_name"
+
+        if [ -L "$dest" ]; then
+            print_info "Skill '$skill_name' already symlinked"
+        elif [ -d "$dest" ]; then
+            print_info "Existing skill '$skill_name' found. Backing up to $dest.bak"
+            mv "$dest" "$dest.bak"
+            ln -s "$skill_dir" "$dest"
+            print_success "Skill '$skill_name' symlinked (original backed up)"
+        else
+            ln -s "$skill_dir" "$dest"
+            print_success "Skill '$skill_name' symlinked"
+        fi
+    done
+}
+
 install_git_config() {
     print_info "Installing Git configuration..."
 
@@ -100,6 +133,7 @@ main() {
     check_git_installed
     install_git_config
     install_ghostty_config
+    install_claude_skills
 
     echo ""
     print_success "Installation completed!"

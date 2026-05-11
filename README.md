@@ -6,10 +6,12 @@ Personal Git configuration files.
 
 - **Git** — aliases, colors, and sensible defaults
 - **Ghostty** — terminal emulator configuration
+- **Claude Code skills** — reusable slash commands for Claude Code
 
 ## Requirements
 
 - [Git](https://git-scm.com/)
+- [Claude Code](https://claude.ai/code) *(for skills)*
 
 ## Installation
 
@@ -36,6 +38,17 @@ cd $HOME\dotfiles
 The install script:
 - injects `.gitconfig` via `[include]` in `~/.gitconfig`
 - symlinks the Ghostty config to `~/.config/ghostty/config` *(Linux/macOS only)*
+- links each skill from `dotfiles/skills/*/` into `~/.claude/skills/`
+
+## Skills
+
+Skills are slash commands available in Claude Code (e.g. `/challenge-plan`). Each skill lives in its own directory under `skills/` and is automatically linked during installation.
+
+| Skill | Description |
+|---|---|
+| `challenge-plan` | Adversarial review of a plan or design — surfaces assumptions, edge cases, and failure modes one question at a time |
+
+To add a skill, create a new directory under `skills/` with a `SKILL.md` file and re-run the install script.
 
 ## Git aliases
 
