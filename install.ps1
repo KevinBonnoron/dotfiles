@@ -100,6 +100,31 @@ function Install-GitConfig {
     }
 }
 
+function Install-TernConfig {
+    Write-Info ('Installing Tern configuration...')
+
+    $ternConfigDir = if ($env:TERN_CONFIG_DIR) { $env:TERN_CONFIG_DIR } else { Join-Path $env:APPDATA 'Tern' }
+    $ternConfigDest = Join-Path $ternConfigDir 'settings.json'
+    $ternConfigSource = Join-Path $DotfilesDir 'tern\settings.json'
+    $backup = $ternConfigDest + '.bak'
+
+    New-Item -ItemType Directory -Path $ternConfigDir -Force -ErrorAction Stop | Out-Null
+    $existing = Get-Item -LiteralPath $ternConfigDest -Force -ErrorAction SilentlyContinue
+    if ($existing -and $existing.LinkType) {
+        Write-Info ('Link already exists at ' + $ternConfigDest)
+        return
+    }
+    if ($existing) {
+        if (Get-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue) {
+            throw ('Backup already exists at ' + $backup + '; leaving Tern configuration unchanged')
+        }
+        Move-Item -LiteralPath $ternConfigDest -Destination $backup -ErrorAction Stop
+        Write-Info ('Existing Tern settings backed up to ' + $backup)
+    }
+    New-Item -ItemType SymbolicLink -Path $ternConfigDest -Target $ternConfigSource -ErrorAction Stop | Out-Null
+    Write-Success ('Tern config symlinked to ' + $ternConfigDest)
+}
+
 # Main script
 function Main {
     Write-Output ('Installing dotfiles...')
@@ -110,6 +135,7 @@ function Main {
     Test-GitInstalled
     Install-GitConfig
     Install-ClaudeSkills
+    Install-TernConfig
 
     Write-Output ""
     Write-Success ('Installation completed!')

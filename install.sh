@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 DOTFILES_DIR="${1:-$HOME/dotfiles}"
 
 # Colors for messages
@@ -89,6 +91,39 @@ install_claude_skills() {
     done
 }
 
+install_tern_config() {
+    print_info "Installing Tern configuration..."
+
+    local tern_config_dir
+    if [ -n "${TERN_CONFIG_DIR:-}" ]; then
+        tern_config_dir="$TERN_CONFIG_DIR"
+    elif [ "$(uname -s)" = Darwin ]; then
+        tern_config_dir="$HOME/Library/Application Support/Tern"
+    else
+        tern_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/tern"
+    fi
+    local tern_config_dest="$tern_config_dir/settings.json"
+    local tern_config_source="$DOTFILES_DIR/tern/settings.json"
+
+    mkdir -p "$tern_config_dir"
+
+    if [ -L "$tern_config_dest" ]; then
+        print_info "Symlink already exists at $tern_config_dest"
+    elif [ -e "$tern_config_dest" ]; then
+        if [ -e "$tern_config_dest.bak" ] || [ -L "$tern_config_dest.bak" ]; then
+            print_error "Backup already exists at $tern_config_dest.bak; leaving Tern configuration unchanged"
+            return 1
+        fi
+        print_info "Existing config found. Backing up to $tern_config_dest.bak"
+        mv "$tern_config_dest" "$tern_config_dest.bak"
+        ln -s "$tern_config_source" "$tern_config_dest"
+        print_success "Tern config symlinked (original backed up)"
+    else
+        ln -s "$tern_config_source" "$tern_config_dest"
+        print_success "Tern config symlinked to $tern_config_dest"
+    fi
+}
+
 install_git_config() {
     print_info "Installing Git configuration..."
 
@@ -134,6 +169,7 @@ main() {
     install_git_config
     install_ghostty_config
     install_claude_skills
+    install_tern_config
 
     echo ""
     print_success "Installation completed!"

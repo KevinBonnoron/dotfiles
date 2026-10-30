@@ -7,6 +7,7 @@ Personal Git configuration files.
 - **Git** — aliases, colors, and sensible defaults
 - **Ghostty** — terminal emulator configuration
 - **Claude Code skills** — reusable slash commands for Claude Code
+- **Tern** — terminal settings
 
 ## Requirements
 
@@ -49,6 +50,16 @@ Skills are slash commands available in Claude Code (e.g. `/challenge-plan`). Eac
 | `challenge-plan` | Adversarial review of a plan or design — surfaces assumptions, edge cases, and failure modes one question at a time |
 
 To add a skill, create a new directory under `skills/` with a `SKILL.md` file and re-run the install script.
+
+The scripts inject `.gitconfig` via `[include]` in `~/.gitconfig` and link Tern's
+`settings.json` into its configuration directory: `~/.config/tern` on Linux,
+`~/Library/Application Support/Tern` on macOS, or `%APPDATA%\Tern` on Windows.
+`TERN_CONFIG_DIR`, if set, overrides this location; Linux also respects
+`XDG_CONFIG_HOME`. Existing Tern settings are backed up as `settings.json.bak`;
+installation stops rather than overwriting an existing backup. Tern credentials
+and host keys remain local and are not included in this repository.
+
+On Linux / macOS, `install.sh` also links the Ghostty configuration.
 
 ## Git aliases
 

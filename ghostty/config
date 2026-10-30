@@ -1,3 +1,5 @@
 resize-overlay = never
 term = xterm-256color
 theme = Monokai Pro Spectrum
+keybind = shift+insert=paste_from_clipboard
+keybind = shift+enter=text:\n
