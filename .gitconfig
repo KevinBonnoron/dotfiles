@@ -2,7 +2,44 @@
     ll = log --oneline origin/HEAD..
     amend = commit --amend --no-edit
     fixup = !git commit --fixup $1 && git rebase origin/HEAD --autosquash
-    cleangone = !git fetch -p && git branch -vv | grep -E ': (gone|disparue)]' | awk '{print $1}' | xargs -r git branch -D
+    # Delete local branches whose upstream is gone (-f: also branches without
+    # upstream, -n: dry run). Never touches the default branch or a branch
+    # checked out in a worktree.
+    prune-gone = "!f() { \
+        force=false; dry=false; \
+        while [ $# -gt 0 ]; do \
+            case \"$1\" in \
+                -f|--force) force=true ;; \
+                -n|--dry-run) dry=true ;; \
+                *) echo \"Usage: git prune-gone [-n|--dry-run] [-f|--force]\" >&2; return 2 ;; \
+            esac; \
+            shift; \
+        done; \
+        git fetch --all --prune --quiet && git worktree prune || return; \
+        default=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD); \
+        default=${default#origin/}; \
+        init_default=$(git config init.defaultBranch || echo master); \
+        git for-each-ref --format='%(refname:short) %(upstream)' refs/heads | \
+        while read -r branch upstream; do \
+            [ \"$branch\" = \"$default\" ] || [ \"$branch\" = \"$init_default\" ] && continue; \
+            if [ -n \"$upstream\" ]; then \
+                git show-ref --verify --quiet \"$upstream\" && continue; \
+                reason='upstream gone'; \
+            elif $force; then \
+                reason='no upstream'; \
+            else \
+                echo \"Kept (no upstream, use -f): $branch\"; \
+                continue; \
+            fi; \
+            if git worktree list --porcelain | grep -qxF \"branch refs/heads/$branch\"; then \
+                echo \"Kept ($reason, checked out in a worktree): $branch\"; \
+            elif $dry; then \
+                echo \"Would delete ($reason): $branch\"; \
+            else \
+                git branch -D \"$branch\"; \
+            fi; \
+        done; \
+    }; f"
     undo = reset --soft HEAD~1
 
 [core]

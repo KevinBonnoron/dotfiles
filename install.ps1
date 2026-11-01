@@ -27,42 +27,6 @@ function Test-GitInstalled {
     }
 }
 
-function Install-ClaudeSkills {
-    Write-Info 'Installing Claude Code skills...'
-
-    $skillsSource = Join-Path $DotfilesDir 'skills'
-    $skillsDest = Join-Path $HOME '.claude\skills'
-
-    if (-not (Test-Path $skillsSource)) {
-        Write-Info 'No skills directory found in dotfiles, skipping.'
-        return
-    }
-
-    New-Item -ItemType Directory -Force -Path $skillsDest | Out-Null
-
-    Get-ChildItem -Path $skillsSource -Directory | ForEach-Object {
-        $skillName = $_.Name
-        $dest = Join-Path $skillsDest $skillName
-
-        if (Test-Path $dest) {
-            $item = Get-Item $dest -Force
-            if ($item.LinkType -eq 'Junction' -or $item.LinkType -eq 'SymbolicLink') {
-                Write-Info ("Skill '$skillName' already linked")
-                return
-            }
-            Write-Info ("Existing skill '$skillName' found. Backing up...")
-            Rename-Item -Path $dest -NewName ($dest + '.bak')
-        }
-
-        try {
-            New-Item -ItemType Junction -Path $dest -Target $_.FullName | Out-Null
-            Write-Success ("Skill '$skillName' linked to $dest")
-        } catch {
-            Write-Output ("WARNING: Could not link skill '$skillName': $_")
-        }
-    }
-}
-
 function Install-GitConfig {
     Write-Info ('Installing Git configuration...')
 
@@ -125,6 +89,106 @@ function Install-TernConfig {
     Write-Success ('Tern config symlinked to ' + $ternConfigDest)
 }
 
+function Install-ZedConfig {
+    Write-Info ('Installing Zed configuration...')
+
+    # Whole directory, so files Zed rewrites or creates stay in the repository.
+    $zedConfigDest = Join-Path $env:APPDATA 'Zed'
+    $zedConfigSource = Join-Path $DotfilesDir 'zed'
+    $backup = $zedConfigDest + '.bak'
+
+    $existing = Get-Item -LiteralPath $zedConfigDest -Force -ErrorAction SilentlyContinue
+    if ($existing -and $existing.LinkType) {
+        Write-Info ('Link already exists at ' + $zedConfigDest)
+        return
+    }
+    if ($existing) {
+        if (Get-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue) {
+            throw ('Backup already exists at ' + $backup + '; leaving Zed configuration unchanged')
+        }
+        Move-Item -LiteralPath $zedConfigDest -Destination $backup -ErrorAction Stop
+        Write-Info ('Existing Zed configuration backed up to ' + $backup)
+    }
+    New-Item -ItemType SymbolicLink -Path $zedConfigDest -Target $zedConfigSource -ErrorAction Stop | Out-Null
+    Write-Success ('Zed config symlinked to ' + $zedConfigDest)
+}
+
+# Returns the directory of the default Zen profile, or $null if Zen never ran.
+function Get-ZenProfileDir {
+    $zenDir = Join-Path $env:APPDATA 'zen'
+    $profilesIni = Join-Path $zenDir 'profiles.ini'
+    if (-not (Test-Path -LiteralPath $profilesIni)) {
+        return $null
+    }
+
+    # The profile bound to the install ([Install*] Default=) wins over Default=1.
+    $section = ''
+    $installDefault = $null
+    $defaultProfile = $null
+    $path = $null
+    $isDefault = $false
+    foreach ($line in Get-Content -LiteralPath $profilesIni) {
+        if ($line -match '^\[(.+)\]$') {
+            $section = $Matches[1]
+            $path = $null
+            $isDefault = $false
+            continue
+        }
+        if ($line -notmatch '^([^=]+)=(.*)$') {
+            continue
+        }
+        $key = $Matches[1]
+        $value = $Matches[2]
+        if ($section -like 'Install*') {
+            if ($key -eq 'Default' -and -not $installDefault) { $installDefault = $value }
+        } elseif ($section -like 'Profile*') {
+            if ($key -eq 'Path') { $path = $value }
+            if ($key -eq 'Default' -and $value -eq '1') { $isDefault = $true }
+            if ($path -and $isDefault -and -not $defaultProfile) { $defaultProfile = $path }
+        }
+    }
+
+    $profilePath = if ($installDefault) { $installDefault } else { $defaultProfile }
+    if (-not $profilePath) {
+        return $null
+    }
+    if ([System.IO.Path]::IsPathRooted($profilePath)) {
+        return $profilePath
+    }
+    return Join-Path $zenDir ($profilePath -replace '/', '\')
+}
+
+function Install-ZenConfig {
+    Write-Info ('Installing Zen configuration...')
+
+    $profileDir = Get-ZenProfileDir
+    if (-not $profileDir -or -not (Test-Path -LiteralPath $profileDir)) {
+        Write-Info ('No Zen profile found (start Zen once first), skipping.')
+        return
+    }
+
+    foreach ($file in @('user.js', 'zen-keyboard-shortcuts.json')) {
+        $source = Join-Path $DotfilesDir ('zen\' + $file)
+        $dest = Join-Path $profileDir $file
+        $backup = $dest + '.bak'
+
+        $existing = Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+        if ($existing -and $existing.LinkType) {
+            Write-Info ('Link already exists at ' + $dest)
+            continue
+        }
+        if ($existing) {
+            if (Get-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue) {
+                throw ('Backup already exists at ' + $backup + '; leaving Zen ' + $file + ' unchanged')
+            }
+            Move-Item -LiteralPath $dest -Destination $backup -ErrorAction Stop
+            Write-Info ('Existing Zen ' + $file + ' backed up to ' + $backup)
+        }
+        New-Item -ItemType SymbolicLink -Path $dest -Target $source -ErrorAction Stop | Out-Null
+        Write-Success ('Zen ' + $file + ' symlinked to ' + $dest)
+    }
+}
+
 # Main script
 function Main {
     Write-Output ('Installing dotfiles...')
@@ -134,8 +198,9 @@ function Main {
     Test-DotfilesDirectory
     Test-GitInstalled
     Install-GitConfig
-    Install-ClaudeSkills
     Install-TernConfig
+    Install-ZedConfig
+    Install-ZenConfig
 
     Write-Output ""
     Write-Success ('Installation completed!')

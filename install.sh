@@ -36,61 +36,6 @@ check_git_installed() {
     fi
 }
 
-install_ghostty_config() {
-    print_info "Installing Ghostty configuration..."
-
-    local ghostty_config_dir="$HOME/.config/ghostty"
-    local ghostty_config_dest="$ghostty_config_dir/config"
-    local ghostty_config_source="$DOTFILES_DIR/ghostty/config"
-
-    mkdir -p "$ghostty_config_dir"
-
-    if [ -L "$ghostty_config_dest" ]; then
-        print_info "Symlink already exists at $ghostty_config_dest"
-    elif [ -f "$ghostty_config_dest" ]; then
-        print_info "Existing config found. Backing up to $ghostty_config_dest.bak"
-        mv "$ghostty_config_dest" "$ghostty_config_dest.bak"
-        ln -s "$ghostty_config_source" "$ghostty_config_dest"
-        print_success "Ghostty config symlinked (original backed up)"
-    else
-        ln -s "$ghostty_config_source" "$ghostty_config_dest"
-        print_success "Ghostty config symlinked to $ghostty_config_dest"
-    fi
-}
-
-install_claude_skills() {
-    print_info "Installing Claude Code skills..."
-
-    local skills_source="$DOTFILES_DIR/skills"
-    local skills_dest="$HOME/.claude/skills"
-
-    if [ ! -d "$skills_source" ]; then
-        print_info "No skills directory found in dotfiles, skipping."
-        return
-    fi
-
-    mkdir -p "$skills_dest"
-
-    for skill_dir in "$skills_source"/*/; do
-        [ -d "$skill_dir" ] || continue
-        local skill_name
-        skill_name=$(basename "$skill_dir")
-        local dest="$skills_dest/$skill_name"
-
-        if [ -L "$dest" ]; then
-            print_info "Skill '$skill_name' already symlinked"
-        elif [ -d "$dest" ]; then
-            print_info "Existing skill '$skill_name' found. Backing up to $dest.bak"
-            mv "$dest" "$dest.bak"
-            ln -s "$skill_dir" "$dest"
-            print_success "Skill '$skill_name' symlinked (original backed up)"
-        else
-            ln -s "$skill_dir" "$dest"
-            print_success "Skill '$skill_name' symlinked"
-        fi
-    done
-}
-
 install_tern_config() {
     print_info "Installing Tern configuration..."
 
@@ -122,6 +67,100 @@ install_tern_config() {
         ln -s "$tern_config_source" "$tern_config_dest"
         print_success "Tern config symlinked to $tern_config_dest"
     fi
+}
+
+install_zed_config() {
+    print_info "Installing Zed configuration..."
+
+    # Whole directory, so files Zed rewrites or creates stay in the repository.
+    local zed_config_dest
+    if [ "$(uname -s)" = Darwin ]; then
+        zed_config_dest="$HOME/.config/zed"
+    else
+        zed_config_dest="${XDG_CONFIG_HOME:-$HOME/.config}/zed"
+    fi
+    local zed_config_source="$DOTFILES_DIR/zed"
+
+    mkdir -p "$(dirname "$zed_config_dest")"
+
+    if [ -L "$zed_config_dest" ]; then
+        print_info "Symlink already exists at $zed_config_dest"
+    elif [ -e "$zed_config_dest" ]; then
+        if [ -e "$zed_config_dest.bak" ] || [ -L "$zed_config_dest.bak" ]; then
+            print_error "Backup already exists at $zed_config_dest.bak; leaving Zed configuration unchanged"
+            return 1
+        fi
+        print_info "Existing config found. Backing up to $zed_config_dest.bak"
+        mv "$zed_config_dest" "$zed_config_dest.bak"
+        ln -s "$zed_config_source" "$zed_config_dest"
+        print_success "Zed config symlinked (original backed up)"
+    else
+        ln -s "$zed_config_source" "$zed_config_dest"
+        print_success "Zed config symlinked to $zed_config_dest"
+    fi
+}
+
+# Prints the directory of the default Zen profile, or nothing if Zen never ran.
+find_zen_profile() {
+    local zen_dirs zen_dir profile
+    if [ "$(uname -s)" = Darwin ]; then
+        zen_dirs=("$HOME/Library/Application Support/zen")
+    else
+        zen_dirs=("${XDG_CONFIG_HOME:-$HOME/.config}/zen" "$HOME/.zen")
+    fi
+
+    for zen_dir in "${zen_dirs[@]}"; do
+        [ -f "$zen_dir/profiles.ini" ] || continue
+        # The profile bound to the install ([Install*] Default=) wins over Default=1.
+        profile=$(awk '
+            /^\[/ { section = $0; path = ""; is_default = 0; next }
+            { key = substr($0, 1, index($0, "=") - 1); value = substr($0, index($0, "=") + 1) }
+            section ~ /^\[Install/ && key == "Default" && install_default == "" { install_default = value }
+            section ~ /^\[Profile/ && key == "Path" { path = value }
+            section ~ /^\[Profile/ && key == "Default" && value == "1" { is_default = 1 }
+            section ~ /^\[Profile/ && path != "" && is_default && default_profile == "" { default_profile = path }
+            END { print (install_default != "" ? install_default : default_profile) }
+        ' "$zen_dir/profiles.ini")
+        [ -n "$profile" ] || continue
+        case "$profile" in
+            /*) echo "$profile" ;;
+            *) echo "$zen_dir/$profile" ;;
+        esac
+        return
+    done
+}
+
+install_zen_config() {
+    print_info "Installing Zen configuration..."
+
+    local profile_dir
+    profile_dir=$(find_zen_profile)
+    if [ -z "$profile_dir" ] || [ ! -d "$profile_dir" ]; then
+        print_info "No Zen profile found (start Zen once first), skipping."
+        return
+    fi
+
+    local file src dest
+    for file in user.js zen-keyboard-shortcuts.json; do
+        src="$DOTFILES_DIR/zen/$file"
+        dest="$profile_dir/$file"
+
+        if [ -L "$dest" ]; then
+            print_info "Symlink already exists at $dest"
+        elif [ -e "$dest" ]; then
+            if [ -e "$dest.bak" ] || [ -L "$dest.bak" ]; then
+                print_error "Backup already exists at $dest.bak; leaving Zen $file unchanged"
+                return 1
+            fi
+            print_info "Existing $file found. Backing up to $dest.bak"
+            mv "$dest" "$dest.bak"
+            ln -s "$src" "$dest"
+            print_success "Zen $file symlinked (original backed up)"
+        else
+            ln -s "$src" "$dest"
+            print_success "Zen $file symlinked to $dest"
+        fi
+    done
 }
 
 install_git_config() {
@@ -159,6 +198,22 @@ EOF
     fi
 }
 
+install_home_manager() {
+    print_info "NixOS detected: applying the Home Manager configuration..."
+
+    # Activation package pinned by flake.lock, no global home-manager CLI needed.
+    local generation
+    generation=$(nix build --no-link --print-out-paths \
+        "$(cd "$DOTFILES_DIR" && pwd)#homeConfigurations.$USER.activationPackage")
+    HOME_MANAGER_BACKUP_EXT=hm-bak "$generation/activate"
+
+    if [ -f "$HOME/.gitconfig" ]; then
+        print_info "$HOME/.gitconfig overrides the Git config managed by Home Manager; consider removing it"
+    fi
+
+    print_success "Home Manager configuration applied"
+}
+
 main() {
     echo "🚀 Installing dotfiles..."
     echo "📁 Dotfiles directory: $DOTFILES_DIR"
@@ -166,10 +221,16 @@ main() {
 
     check_dotfiles_directory
     check_git_installed
-    install_git_config
-    install_ghostty_config
-    install_claude_skills
-    install_tern_config
+
+    if [ -e /etc/NIXOS ]; then
+        install_home_manager
+    else
+        install_git_config
+        install_tern_config
+        install_zed_config
+    fi
+    # The Zen profile directory is only known at runtime, so Home Manager cannot link it.
+    install_zen_config
 
     echo ""
     print_success "Installation completed!"

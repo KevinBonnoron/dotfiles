@@ -4,5 +4,7 @@
   "theme_light": "amethyst",
   "copy_on_select": true,
   "opacity": 85,
+  "command_lenses": false,
+  "native_completion": false,
   "prefs_width": 673
 }
