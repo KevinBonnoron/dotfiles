@@ -25,6 +25,10 @@
   # LocalSend needs its port (53317) open in the firewall to receive files.
   programs.localsend.enable = true;
 
+  # Fix Gdk-ERROR / BadWindow crash in 'tern' related to XInputExtension
+  environment.variables.GDK_CORE_DEVICE_EVENTS = "1";
+
+
   # Only what must work without Home Manager: root shell, rescue console,
   # editing and rebuilding /etc/nixos. Everything else lives in home/.
   environment.systemPackages = with pkgs; [
